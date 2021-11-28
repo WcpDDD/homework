@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: http-server-gateway
+  namespace: cncamp
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+    - hosts:
+        - cncamp.com
+      secretName: http-server-tls
+  rules:
+    - host: cncamp.com
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: http-server-service
+                port:
+                  number: 80
