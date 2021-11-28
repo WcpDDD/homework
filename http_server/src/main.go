@@ -74,7 +74,7 @@ func main() {
 	if watcher, err := fsnotify.NewWatcher(); err != nil {
 		glog.Warning("配置文件监听器创建失败")
 	} else {
-		watchConfigFile(watcher, func() {
+		watchConfigFile(watcher, configPath, func() {
 			glog.V(5).Infoln("监听到配置文件发生修改")
 			serverConfig = loadServerConfig(configPath)
 			server = reloadConfig(serverConfig, server)
@@ -114,7 +114,7 @@ func reloadConfig(config serverConfig, server *httpServer) *httpServer {
 	}
 }
 
-func watchConfigFile(watcher *fsnotify.Watcher, cb func(), stop chan bool) {
+func watchConfigFile(watcher *fsnotify.Watcher, configFile *string, cb func(), stop chan bool) {
 	go func() {
 		for {
 			select {
@@ -136,7 +136,7 @@ func watchConfigFile(watcher *fsnotify.Watcher, cb func(), stop chan bool) {
 			}
 		}
 	}()
-	watcher.Add(DefaultConfigFile)
+	watcher.Add(*configFile)
 }
 
 func startServer(config serverConfig) *httpServer {
