@@ -128,3 +128,6 @@ subsets:
 ```
 
 17. 生成https证书
+18. ingress安装，其中镜像拉不出来，本地科学上网拉下来后提交到阿里云的镜像加速，修改ingress部署脚本的镜像地址
+19. 配置secret
+20. 配置ingress访问service
