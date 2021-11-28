@@ -38,9 +38,10 @@ type serverConfig struct {
 }
 
 type httpServer struct {
-	server *http.Server
-	config serverConfig
-	mutex  sync.Mutex
+	server     *http.Server
+	config     serverConfig
+	mutex      sync.Mutex
+	exitLogger chan bool
 }
 
 func (server *httpServer) stopServer() {
@@ -51,15 +52,19 @@ func (server *httpServer) stopServer() {
 	if err := server.server.Shutdown(ctx); err != nil {
 		glog.Fatalln("服务器优雅终止失败")
 	}
+	// 关闭日志
+	server.exitLogger <- true
 }
 
 func main() {
+	configPath := flag.String("config-path", DefaultConfigFile, "配置文件路径")
+
 	flag.Parse()
 	defer func() {
 		glog.Flush()
 	}()
 
-	serverConfig := loadServerConfig()
+	serverConfig := loadServerConfig(configPath)
 
 	server := startServer(serverConfig)
 	stopWatch := make(chan bool)
@@ -71,7 +76,7 @@ func main() {
 	} else {
 		watchConfigFile(watcher, func() {
 			glog.V(5).Infoln("监听到配置文件发生修改")
-			serverConfig = loadServerConfig()
+			serverConfig = loadServerConfig(configPath)
 			server = reloadConfig(serverConfig, server)
 			glog.V(5).Infoln("配置文件已重新加载")
 		}, stopWatch)
@@ -80,6 +85,8 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	<-done
+	// 关闭文件监听
+	stopWatch <- true
 	glog.V(5).Infoln("检测到服务器关闭信号")
 	server.stopServer()
 	glog.V(5).Infoln("服务器关闭成功")
@@ -153,21 +160,22 @@ func startServer(config serverConfig) *httpServer {
 	}()
 
 	return &httpServer{
-		server: &server,
-		config: config,
-		mutex:  sync.Mutex{},
+		server:     &server,
+		config:     config,
+		mutex:      sync.Mutex{},
+		exitLogger: exitChan,
 	}
 }
 
 // 加载服务器配置
-func loadServerConfig() serverConfig {
+func loadServerConfig(configPath *string) serverConfig {
 	config := serverConfig{
 		App: serverAppConfig{
 			Port: 80,
 		},
 	}
 	glog.V(5).Infof("加载配置文件")
-	if file, err := ioutil.ReadFile(DefaultConfigFile); err != nil {
+	if file, err := ioutil.ReadFile(*configPath); err != nil {
 		glog.Warning("配置文件加载失败，使用默认配置")
 		config = serverConfig{
 			App: serverAppConfig{

@@ -5,13 +5,16 @@ WORKDIR /go/project/http_server/src
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/http_server
 
-FROM scratch
+FROM alpine
 
-COPY --from=build /go/bin/http_server /
+COPY --from=build /go/bin/http_server /bin/
+
+RUN apk add --no-cache tini
 
 EXPOSE 80
 
-ENTRYPOINT ["/http_server"]
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["http_server", "-v=5", "-alsologtostderr"]
 
 # docker build -t http_server:v1.0 .
 # docker tag http_server:v1.0 chenxinpeint01/http_server:v1.0
