@@ -39,6 +39,92 @@
 3. 配置maxSurge及maxUnvailable保证应用升级时，失败及时停止滚动升级
 4. 将configmap挂载为一个volumn
 5. 这里发现一个问题 configmap在我的想法中是不一定挂载到应用所在目录的，所以这里对http_server做出改造，从环境变量中读取config文件路径
-5. 定义readiness探针，保证应用启动成功后，容器才提供服务
-### service
-### ingress
+5. 定义readiness探针，保证应用启动成功后，容器才ready
+#### service
+
+1. 配合deployment中的label和service中的selector实现金丝雀
+
+#### ingress
+
+
+
+### 作业过程
+```
+alias k=kubectl
+```
+1. 完成k8s部署
+1. 在kubelet中进行日志文件的配置
+2. 完成代码改写
+3. 改写dockerfile，引入tini
+4. aliyun镜像加速创建镜像
+5. 推送至阿里云镜像
+6. 创建namespace 并配置resourcequota
+```
+k create namespace cncamp
+k apply -f resource-quota.yaml
+```
+7. 创建一个github项目用于模拟配置文件的版本管理
+8. 提交配置文件，并打上版本tag
+9. 克隆指定tag的配置文件项目到本地 并创建configmap
+```
+git clone https://gitee.com/chenxinpei/homework-config.git
+k create configmap http-server-config --from-file ./homework-config/http-server.yaml -n cncamp
+```
+
+10. 这种方式感觉违背了基准代码原则，遂对其进行修改，修改为k8s yaml的形式，并打上新的tag
+```
+git pull
+k apply -f ./homework-config/http-server.yaml
+```
+
+11. 根据事前考量的内容进行deployment的编写
+```
+k apply -f priority.yaml
+k apply -f deployment.yaml
+```
+12. 发现pod一直为notready，因为配置文件配置的端口号为8081，与探针不符，更新配置文件，并重新发布configmap
+13. 发现pod中应用没有监听到配置文件变化，检查代码，发现没有监听指定的配置文件
+14. 修改代码，打包为镜像，并修改tag，修改deployment，重新发布，顺带调整replicaset
+15. 成功ready
+16. 编写service spec配置
+```
+subsets:
+  - addresses:
+    - ip: 10.0.1.18
+      nodeName: chenxinpei-worker-1
+      targetRef:
+        kind: Pod
+        name: http-server-68ff4764db-sc22d
+        namespace: cncamp
+        resourceVersion: "1741461"
+        uid: 6da38a0f-616f-4c4f-8238-d111be013a66
+    - ip: 10.0.1.204
+      nodeName: chenxinpei-worker-1
+      targetRef:
+        kind: Pod
+        name: http-server-68ff4764db-dqbb2
+        namespace: cncamp
+        resourceVersion: "1741494"
+        uid: c3802628-b346-48c1-a698-52ae1e2ae744
+    - ip: 10.0.1.61
+      nodeName: chenxinpei-worker-1
+      targetRef:
+        kind: Pod
+        name: http-server-68ff4764db-dsbl7
+        namespace: cncamp
+        resourceVersion: "1741377"
+        uid: a9cea676-61a9-441d-9fc3-22b216680e9f
+    - ip: 10.0.1.88
+      nodeName: chenxinpei-worker-1
+      targetRef:
+        kind: Pod
+        name: http-server-68ff4764db-5q22h
+        namespace: cncamp
+        resourceVersion: "1741436"
+        uid: b9e662b1-36c1-4205-8941-a6f8c44ba3fc
+    ports:
+    - port: 80
+      protocol: TCP
+```
+
+17. 生成https证书
