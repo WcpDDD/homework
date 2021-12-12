@@ -17,10 +17,10 @@ spec:
       run: http-server
       track: stable
   template:
-    annotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/port: "80"
     metadata:
+      annotations:
+        prometheus.io/scrape: true
+        prometheus.io/port: 80
       labels:
         run: http-server
         track: stable
