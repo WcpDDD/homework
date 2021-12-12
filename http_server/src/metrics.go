@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"time"
 )
@@ -19,17 +20,19 @@ func NewMetrics(namespace string, name string, labelName string, help string) Me
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
-			Subsystem: name,
+			Name:      name,
 			Help:      help,
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 15),
 		}, []string{labelName})
-	prometheus.Register(histogramVec)
+	if err := prometheus.Register(histogramVec); err != nil {
+		fmt.Print(err)
+	}
 	return Metrics{
 		histogramVec,
 	}
 }
 
-func (metrics Metrics) NewTimer() MetricsTimer {
+func (metrics *Metrics) NewTimer() MetricsTimer {
 	now := time.Now()
 	return MetricsTimer{
 		histogramVec: metrics.histogramVec,

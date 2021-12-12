@@ -231,7 +231,8 @@ func sendResponse(statusCode int, body string, header http.Header, w http.Respon
 // 包装handle 处理异常及打印日志
 func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWriter, r *http.Request) {
 	// 为每个请求创建独立的HistogramVec
-	metrics := NewMetrics(fmt.Sprintf("http-server/%s", h.Path()), "execution-time", "step", "访问耗时")
+	metrics := NewMetrics(fmt.Sprintf("http_server_%s", strings.Replace(h.Path(), "/", "_", -1)),
+		"execution_latency_seconds", "step", "total time")
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 		timer := metrics.NewTimer()
