@@ -19,3 +19,8 @@ default      loki-prometheus-node-exporter        ClusterIP   None             <
 default      loki-prometheus-pushgateway          ClusterIP   10.100.108.243   <none>        9091/TCP                     55m
 default      loki-prometheus-server               ClusterIP   10.108.24.185    <none>        80/TCP                       55m
 ```
+2. 查看指标
+![img_1.png](img_1.png)
+
+### grafana
+![img.png](img.png)
