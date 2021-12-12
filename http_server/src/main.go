@@ -7,6 +7,7 @@ import (
 	"github.com/all-f-0/golang/homework/http_server/src/handles"
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
@@ -147,6 +148,7 @@ func startServer(config serverConfig) *httpServer {
 	go requestLogger(logChan, exitChan)
 	registerHandle(handles.IndexHandle{}, mux, logChan)
 	registerHandle(handles.Healthz{}, mux, logChan)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.App.Port),
@@ -228,8 +230,11 @@ func sendResponse(statusCode int, body string, header http.Header, w http.Respon
 
 // 包装handle 处理异常及打印日志
 func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWriter, r *http.Request) {
+	// 为每个请求创建独立的HistogramVec
+	metrics := NewMetrics(fmt.Sprintf("http-server/%s", h.Path()), "execution-time", "step", "访问耗时")
 	return func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
+		timer := metrics.NewTimer()
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -237,6 +242,7 @@ func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWri
 				// 服务端异常
 				sendResponse(http.StatusInternalServerError, "", http.Header{}, w)
 			}
+			timer.ObserveTotal()
 			ch <- requestLog{
 				ip:   r.RemoteAddr,
 				code: statusCode,

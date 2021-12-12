@@ -1,10 +1,12 @@
 package handles
 
 import (
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 type IndexHandle struct{}
@@ -33,6 +35,10 @@ func copyHeaders(r *http.Request, header *http.Header) {
 		}
 	}
 }
+func randInt(min int, max int) int {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return min + rand.Intn(max-min)
+}
 
 func (IndexHandle) Invoke(r *http.Request, callback func(ResponseInfo, error)) {
 	defer func() {
@@ -40,6 +46,9 @@ func (IndexHandle) Invoke(r *http.Request, callback func(ResponseInfo, error)) {
 			callback(ResponseInfo{}, err.(error))
 		}
 	}()
+
+	// 添加延时
+	time.Sleep(time.Duration(randInt(500, 3000)) * time.Millisecond)
 
 	header := http.Header{}
 	copyHeaders(r, &header)

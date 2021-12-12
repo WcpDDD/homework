@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: http-server
-          image: registry.cn-hangzhou.aliyuncs.com/chenxinpei/http-server:v1.2
+          image: registry.cn-hangzhou.aliyuncs.com/chenxinpei/http-server:v2.0
           command: ["/sbin/tini", "--", "http_server", "-v=5", "-alsologtostderr", "--config-path=/etc/http-server/http-server.yaml"]
           volumeMounts:
             - mountPath: /etc/http-server
