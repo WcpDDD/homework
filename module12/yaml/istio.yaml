@@ -6,7 +6,7 @@ spec:
   gateways:
     - http-server
   hosts:
-    - http-server
+    - http-server.io
   http:
     - match:
         - port: 80
@@ -25,7 +25,7 @@ spec:
     istio: ingressgateway
   servers:
     - hosts:
-        - http-server
+        - http-server.io
       port:
         name: http-server
         number: 80
