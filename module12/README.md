@@ -136,5 +136,5 @@ Cchenxinpei@chenxinpei:~/homework/module12/yaml$ curl --resolve http-server.io:4
 1. 安装jaeger
 2. istioctl dashboard jaeger
 3. 因为我这个k8s跑在虚拟机中，需要配置监听端口  istioctl dashboard jaeger --address 0.0.0.0
-![JAEGER](D:\codes\kubernetes\homework\module12\JAEGER.png)
+![JAEGER](./JAEGER.png)
 ```
