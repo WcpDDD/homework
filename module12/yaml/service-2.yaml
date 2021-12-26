@@ -6,7 +6,7 @@ metadata:
   labels:
     run: http-server-2
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - port: 80
       targetPort: 80
