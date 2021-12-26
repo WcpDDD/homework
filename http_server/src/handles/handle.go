@@ -1,6 +1,7 @@
 package handles
 
 import (
+	"github.com/all-f-0/golang/homework/http_server/src/common"
 	"github.com/all-f-0/golang/homework/util"
 	"net/http"
 )
@@ -21,7 +22,7 @@ func CreateResponseInfo(body string, header http.Header) ResponseInfo {
 }
 
 type Handle interface {
-	Invoke(r *http.Request, callback func(ResponseInfo, error))
+	Invoke(r *http.Request, server *common.HttpServer, callback func(ResponseInfo, error))
 	Path() string
 	Method() string
 }

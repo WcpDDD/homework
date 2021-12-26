@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
+	"github.com/all-f-0/golang/homework/http_server/src/common"
 	"github.com/all-f-0/golang/homework/http_server/src/handles"
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/glog"
@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 )
 
 const (
@@ -28,33 +27,6 @@ const (
 type requestLog struct {
 	ip   string
 	code int
-}
-
-type serverAppConfig struct {
-	Port int
-}
-
-type serverConfig struct {
-	App serverAppConfig
-}
-
-type httpServer struct {
-	server     *http.Server
-	config     serverConfig
-	mutex      sync.Mutex
-	exitLogger chan bool
-}
-
-func (server *httpServer) stopServer() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer func() {
-		cancel()
-	}()
-	if err := server.server.Shutdown(ctx); err != nil {
-		glog.Fatalln("服务器优雅终止失败")
-	}
-	// 关闭日志
-	server.exitLogger <- true
 }
 
 func main() {
@@ -89,28 +61,28 @@ func main() {
 	// 关闭文件监听
 	stopWatch <- true
 	glog.V(5).Infoln("检测到服务器关闭信号")
-	server.stopServer()
+	server.StopServer()
 	glog.V(5).Infoln("服务器关闭成功")
 }
 
 // 判断配置文件更改是否需要重启服务器逻辑
-func restartServerPredicate(config serverConfig, server *httpServer) bool {
-	return config.App.Port != server.config.App.Port
+func restartServerPredicate(config common.ServerConfig, server *common.HttpServer) bool {
+	return config.App.Port != server.Config.App.Port
 }
 
-func reloadConfig(config serverConfig, server *httpServer) *httpServer {
-	server.mutex.Lock()
+func reloadConfig(config common.ServerConfig, server *common.HttpServer) *common.HttpServer {
+	server.Mutex.Lock()
 	defer func() {
-		server.mutex.Unlock()
+		server.Mutex.Unlock()
 	}()
 	// 如果App配置发生变化 则重启server 否则仅替换其中配置文件
 	if restartServerPredicate(config, server) {
 		glog.V(5).Infoln("服务器需要重启")
-		server.stopServer()
+		server.StopServer()
 		return startServer(config)
 	} else {
 		glog.V(5).Infoln("服务器不需要重启")
-		server.config = config
+		server.Config = config
 		return server
 	}
 }
@@ -140,20 +112,29 @@ func watchConfigFile(watcher *fsnotify.Watcher, configFile *string, cb func(), s
 	watcher.Add(*configFile)
 }
 
-func startServer(config serverConfig) *httpServer {
+func startServer(config common.ServerConfig) *common.HttpServer {
 	mux := http.NewServeMux()
-
-	logChan := make(chan requestLog, LogBufferSize)
-	exitChan := make(chan bool, 1)
-	go requestLogger(logChan, exitChan)
-	registerHandle(handles.IndexHandle{}, mux, logChan)
-	registerHandle(handles.Healthz{}, mux, logChan)
-	mux.Handle("/metrics", promhttp.Handler())
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", config.App.Port),
 		Handler: mux,
 	}
+
+	logChan := make(chan requestLog, LogBufferSize)
+	exitChan := make(chan bool, 1)
+	go requestLogger(logChan, exitChan)
+
+	httpServer := common.HttpServer{
+		Server:     &server,
+		Config:     config,
+		Mutex:      sync.Mutex{},
+		ExitLogger: exitChan,
+	}
+
+	registerHandle(handles.IndexHandle{}, &httpServer, mux, logChan)
+	registerHandle(handles.Healthz{}, &httpServer, mux, logChan)
+	registerHandle(handles.TraceHandle{}, &httpServer, mux, logChan)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
@@ -161,26 +142,21 @@ func startServer(config serverConfig) *httpServer {
 		}
 	}()
 
-	return &httpServer{
-		server:     &server,
-		config:     config,
-		mutex:      sync.Mutex{},
-		exitLogger: exitChan,
-	}
+	return &httpServer
 }
 
 // 加载服务器配置
-func loadServerConfig(configPath *string) serverConfig {
-	config := serverConfig{
-		App: serverAppConfig{
+func loadServerConfig(configPath *string) common.ServerConfig {
+	config := common.ServerConfig{
+		App: common.ServerAppConfig{
 			Port: 80,
 		},
 	}
 	glog.V(5).Infof("加载配置文件")
 	if file, err := ioutil.ReadFile(*configPath); err != nil {
 		glog.Warning("配置文件加载失败，使用默认配置")
-		config = serverConfig{
-			App: serverAppConfig{
+		config = common.ServerConfig{
+			App: common.ServerAppConfig{
 				Port: 80,
 			},
 		}
@@ -188,8 +164,8 @@ func loadServerConfig(configPath *string) serverConfig {
 		err := yaml.Unmarshal(file, &config)
 		// 处理掉配置文件格式不正确的情况
 		if err != nil {
-			config = serverConfig{
-				App: serverAppConfig{
+			config = common.ServerConfig{
+				App: common.ServerAppConfig{
 					Port: 80,
 				},
 			}
@@ -229,7 +205,7 @@ func sendResponse(statusCode int, body string, header http.Header, w http.Respon
 }
 
 // 包装handle 处理异常及打印日志
-func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWriter, r *http.Request) {
+func handleWrapper(h handles.Handle, server *common.HttpServer, ch chan requestLog) func(w http.ResponseWriter, r *http.Request) {
 	// 为每个请求创建独立的HistogramVec
 	metrics := NewMetrics(fmt.Sprintf("http_server_%s", strings.Replace(h.Path(), "/", "_", -1)),
 		"execution_latency_seconds", "step", "total time")
@@ -260,7 +236,7 @@ func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWri
 		method := r.Method
 		if strings.EqualFold(method, h.Method()) {
 			glog.V(1).Infof("处理请求:%s,%s\n", h.Path(), h.Method())
-			h.Invoke(r, func(responseInfo handles.ResponseInfo, err error) {
+			h.Invoke(r, server, func(responseInfo handles.ResponseInfo, err error) {
 				if err != nil {
 					statusCode = http.StatusInternalServerError
 					sendResponse(statusCode, "", responseInfo.Header, w)
@@ -277,9 +253,9 @@ func handleWrapper(h handles.Handle, ch chan requestLog) func(w http.ResponseWri
 	}
 }
 
-func registerHandle(handle handles.Handle, mux *http.ServeMux, ch chan requestLog) {
+func registerHandle(handle handles.Handle, server *common.HttpServer, mux *http.ServeMux, ch chan requestLog) {
 	path := handle.Path()
 	if len(path) > 0 {
-		mux.HandleFunc(path, handleWrapper(handle, ch))
+		mux.HandleFunc(path, handleWrapper(handle, server, ch))
 	}
 }

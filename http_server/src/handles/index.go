@@ -1,6 +1,7 @@
 package handles
 
 import (
+	"github.com/all-f-0/golang/homework/http_server/src/common"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ func randInt(min int, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-func (IndexHandle) Invoke(r *http.Request, callback func(ResponseInfo, error)) {
+func (IndexHandle) Invoke(r *http.Request, server *common.HttpServer, callback func(ResponseInfo, error)) {
 	defer func() {
 		if err := recover(); err != nil {
 			callback(ResponseInfo{}, err.(error))

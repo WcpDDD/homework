@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: http-server-2
+    track: stable
+  name: http-server-2
+  namespace: service-mesh
+spec:
+  replicas: 4
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      run: http-server-2
+      track: stable
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "80"
+      labels:
+        run: http-server-2
+        track: stable
+      namespace: service-mesh
+    spec:
+      containers:
+        - name: http-server-2
+          image: registry.cn-hangzhou.aliyuncs.com/chenxinpei/http-server:v3.1
+          command: ["/sbin/tini", "--", "http_server", "-v=5", "-alsologtostderr", "--config-path=/etc/http-server/http-server.yaml"]
+          volumeMounts:
+            - mountPath: /etc/http-server
+              name: http-server-config
+          readinessProbe:
+            httpGet:
+              port: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 250Mi
+            limits:
+              cpu: 250m
+              memory: 250Mi
+      priorityClassName: high-priority
+      volumes:
+        - name: http-server-config
+          configMap:
+            name: http-server-config-2
