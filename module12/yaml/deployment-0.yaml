@@ -7,7 +7,7 @@ metadata:
   name: http-server-0
   namespace: service-mesh
 spec:
-  replicas: 4
+  replicas: 1
   strategy:
     rollingUpdate:
       maxSurge: 25%
