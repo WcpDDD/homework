@@ -39,10 +39,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 250Mi
-            limits:
-              cpu: 250m
-              memory: 250Mi
+              memory: 100Mi
       priorityClassName: high-priority
       volumes:
         - name: http-server-config
