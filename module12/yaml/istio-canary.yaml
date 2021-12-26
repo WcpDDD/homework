@@ -12,14 +12,19 @@ spec:
         - headers:
             user:
               exact: chenxinpei
+        - port: 443
       route:
         - destination:
             host: http-server.io
             subset: canary
+            port:
+              number: 80
     - route:
         - destination:
             host: http-server.io
             subset: stable
+            port:
+              number: 80
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
