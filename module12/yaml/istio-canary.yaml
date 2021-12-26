@@ -14,11 +14,11 @@ spec:
               exact: chenxinpei
       route:
         - destination:
-            host: canary
+            host: http-server.io
             subset: canary
     - route:
         - destination:
-            host: canary
+            host: http-server.io
             subset: stable
 ---
 apiVersion: networking.istio.io/v1alpha3
