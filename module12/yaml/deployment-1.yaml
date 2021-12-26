@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    run: http-server
+    run: http-server-1
     track: stable
   name: http-server-1
   namespace: service-mesh
